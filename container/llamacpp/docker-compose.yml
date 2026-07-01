@@ -1,0 +1,34 @@
+# Sailfish backend #2 — llama.cpp on the 3060.  `docker compose up -d` -> OpenAI API on :22343
+#
+# Uses the OFFICIAL ggml-org GGUF (built by the llama.cpp org itself -> guaranteed to load in
+# mainline llama-server; Ollama's own GGUF is a forked build and won't). Q4_K_M = 5.34G, leaving
+# room on 12G for the assistant drafter (spec-decode) OR zero-VRAM prompt-lookup (n-gram drafter).
+services:
+  sailfish-llamacpp:
+    image: ghcr.io/ggml-org/llama.cpp:server-cuda
+    container_name: sailfish-llamacpp
+    ports:
+      - "${SAILFISH_PORT:-22343}:22343"
+    environment:
+      HF_TOKEN: ${HF_TOKEN:-}
+      LLAMA_ARG_HF_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - llamacpp_cache:/root/.cache        # persist the HF GGUF download across restarts
+    # Ampere default = bare fine-tuned target (P0: e2b draft fits at 8.8/12GB but gives NO speedup on
+    # Ampere — too heavy; the real drafter is Blackwell/vLLM/MTP). To A/B the draft, add back:
+    #   --spec-draft-hf ggml-org/gemma-4-E2B-it-GGUF:Q8_0  -ngld 99  --spec-draft-n-max 6
+    command: >
+      -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
+      --alias gemma4-e4b
+      -ngl 99 -c 8192 -fa on
+      --host 0.0.0.0 --port 22343
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: "no"
+volumes:
+  llamacpp_cache:

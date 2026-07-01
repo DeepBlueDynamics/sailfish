@@ -1,0 +1,11 @@
+# Sailfish — generated artifacts (regenerate with: node scrape/scrape_toolcalls.mjs)
+data/tool_calls.jsonl
+data/agentic_prompts.jsonl
+data/ngram_drafter.json
+# keep data/stats.json — small, useful provenance
+!data/stats.json
+
+# model caches / weights
+*.safetensors
+*.gguf
+__pycache__/

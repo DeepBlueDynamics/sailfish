@@ -1,0 +1,27 @@
+# Sailfish sovereign stack — `docker compose up --build` -> OpenAI API on http://localhost:8000
+services:
+  sailfish:
+    build: .
+    image: nuts-services-sailfish:latest
+    container_name: sailfish
+    ports:
+      - "${SAILFISH_PORT:-22343}:22343"   # Sailfish's own port
+    environment:
+      SAILFISH_PORT: "22343"
+      SAILFISH_TARGET: ${SAILFISH_TARGET:-ciocan/gemma-4-E4B-it-W4A16}
+      # swap to the tuned tool-drafter once trained; "none" = bare-target baseline to beat Ollama
+      SAILFISH_DRAFTER: ${SAILFISH_DRAFTER:-google/gemma-4-E4B-it-qat-q4_0-unquantized-assistant}
+      SAILFISH_SPEC_K: ${SAILFISH_SPEC_K:-5}
+      SAILFISH_QUANT: ${SAILFISH_QUANT:-auto}
+      SAILFISH_GPU_UTIL: ${SAILFISH_GPU_UTIL:-0.92}
+      HUGGING_FACE_HUB_TOKEN: ${HF_TOKEN:-}
+    volumes:
+      - ${HOME}/.cache/huggingface:/root/.cache/huggingface   # reuse host model cache
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
