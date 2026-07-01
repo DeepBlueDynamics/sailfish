@@ -6,8 +6,20 @@ discover and export tool-call training data. This is the function to build.
 
 ## Where it lives
 On the **nemesis8 controller** (the process that starts with nemesis8, bound at host level). Sailfish
-reaches it from inside its container at `http://host.docker.internal:<PORT>`. Localhost-only; optional
-bearer token (`SAILFISH_N8_TOKEN`) since it's local, but keep the door for it.
+reaches it from inside its container at `http://host.docker.internal:18042` — **port 18042 is the wired
+default** (best candidate from source recon, per Kord: wire it up this way; adjust later if wrong; env
+override `SAILFISH_N8_URL`). Localhost-only; optional bearer token (`SAILFISH_N8_TOKEN`) since it's
+local, but keep the door for it.
+
+## Second responsibility: container lifecycle
+Beyond data export, nemesis8 is the component that **installs/starts the Sailfish appliance** when asked
+(e.g. by Hyperia's detection ladder, see `HYPERIA_INTEGRATION.md`): `docker pull deepbluedynamics/sailfish`
++ `docker run -p 22343:22343 --gpus all ...`. Expose that as a controller action.
+
+## Export packaging
+Exports must also be downloadable as a **zip** (`GET /v1/training/export?...&format=zip`) — the BYO-cloud
+training path hands the user a zip + a templated script; they upload it to their own Google Cloud account
+themselves. Sailfish never holds their credentials.
 
 ## Endpoints
 

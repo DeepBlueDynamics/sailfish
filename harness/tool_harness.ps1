@@ -71,7 +71,9 @@ function Invoke-Chat($Messages) {
       $a = $tc.function.arguments; if ($a -is [string]) { try { $a = $a | ConvertFrom-Json } catch {} }
       $tcs += [pscustomobject]@{ id=$tc.id; name=$tc.function.name; args=$a } } }
     $ct = if ($r.usage.completion_tokens) { [int]$r.usage.completion_tokens } else { 0 }
-    $tps = if ($ct -gt 0 -and $sw.Elapsed.TotalSeconds -gt 0) { [math]::Round($ct / $sw.Elapsed.TotalSeconds, 1) } else { 0 }
+    # llama.cpp returns true decode speed in timings.predicted_per_second; wall-clock (incl. prefill) is the fallback
+    $tps = if ($r.timings -and $r.timings.predicted_per_second) { [math]::Round($r.timings.predicted_per_second, 1) }
+           elseif ($ct -gt 0 -and $sw.Elapsed.TotalSeconds -gt 0) { [math]::Round($ct / $sw.Elapsed.TotalSeconds, 1) } else { 0 }
     return [pscustomobject]@{ Raw=$raw; ToolCalls=$tcs; Content=[string]$raw.content; TPS=$tps; LatencyMs=[math]::Round($sw.Elapsed.TotalMilliseconds,0) }
   }
 }

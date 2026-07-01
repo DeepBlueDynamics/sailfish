@@ -14,12 +14,11 @@ services:
       LLAMA_ARG_HF_TOKEN: ${HF_TOKEN:-}
     volumes:
       - llamacpp_cache:/root/.cache        # persist the HF GGUF download across restarts
-    # Tier B default = target + FREE n-gram speculation (zero VRAM, measured on RTX 3060 12GB:
-    # tool-run harness 75.7 avg TPS vs Ollama ~62-66; repetitive output 177 TPS = 2.7x; prose ~67 = no
-    # regression). The e2b *model* draft was a wash (68.5, and 8.8GB) — don't use it on 12GB cards.
+    # Ampere default = bare fine-tuned target (P0: e2b draft fits at 8.8/12GB but gives NO speedup on
+    # Ampere — too heavy; the real drafter is Blackwell/vLLM/MTP). To A/B the draft, add back:
+    #   --spec-draft-hf ggml-org/gemma-4-E2B-it-GGUF:Q8_0  -ngld 99  --spec-draft-n-max 6
     command: >
-      -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
-      --spec-type ngram-mod
+      -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M --spec-type ngram-mod
       --alias gemma4-e4b
       -ngl 99 -c 8192 -fa on
       --host 0.0.0.0 --port 22343
@@ -33,3 +32,4 @@ services:
     restart: "no"
 volumes:
   llamacpp_cache:
+

@@ -19,7 +19,7 @@ services:
     # regression). The e2b *model* draft was a wash (68.5, and 8.8GB) — don't use it on 12GB cards.
     command: >
       -hf ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
-      --spec-type ngram-mod
+      --spec-type draft-mtp
       --alias gemma4-e4b
       -ngl 99 -c 8192 -fa on
       --host 0.0.0.0 --port 22343
@@ -33,3 +33,4 @@ services:
     restart: "no"
 volumes:
   llamacpp_cache:
+
