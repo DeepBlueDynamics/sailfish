@@ -51,6 +51,30 @@ Cheap/n-gram drafters get **1.2%** acceptance on *reasoning* generation (they di
 *tool calls* — because tool calls are structured and repetitive (same names, JSON arg keys). The dumb
 drafter found its ocean. This is a **local** play (agentic tool-runs), never the leaderboard (reasoning).
 
+## Vocabulary curation — what the leaderboard keepset war taught us (2026-07-02)
+The frontier prunes gemma's 262,144-token lm_head down to ~12k rows ("keepset") for bandwidth. Sailfish
+inherits this lever, but with hard-won caveats — we ran the full experiment on A100s:
+- **The shared 12k keepset is fitted to the public eval's answer key** (floor + specials + ascending-ID
+  fill that happens to cover all 5,892 public target tokens perfectly). It is NOT frequency-profiled.
+- **Regenerating answers on disjoint prompts puts ~1-6% of target tokens OUTSIDE the 12k** → those score
+  `-inf` → perplexity detonates. This is real out-of-distribution tail, not noise.
+- **SKG/embedding-diffusion curation helps only marginally.** We built keepsets by cosine-diffusing from
+  observed tokens across the model's tied embedding graph. Tournament (16k→26k budgets): held-out miss
+  only fell 5.8%→4.3% and **never reached zero**. The private tail is genuinely OOD — diffusion reaches
+  *unobserved-but-nearby*, not *unobserved-and-far*. Raw keepset SIZE is the only real coverage lever,
+  and size costs bandwidth.
+- **The lm_head prune can only go SMALLER than its source tier** (subset check in the serve). To field a
+  differently-composed head you must slice from a full-vocab (262k) target, not a pre-pruned one.
+- **PPL is denominator-sensitive**: a smaller head = smaller softmax denominator = *lower* reported PPL,
+  independent of real fidelity. Never trust a sub-bf16-reference PPL (e.g. our 1.99 artifact) — it's the
+  truncated denominator, not a better model. Always sanity-check against the bf16 reference (~2.30).
+
+**Sailfish takeaway:** for the LOCAL product, keepset choice is a **speed knob with a fidelity floor**, not
+a magic lever. Ship a keepset sized to the user's *own* tool-call token distribution (which we CAN profile
+from their real data — unlike the challenge's hidden private set), and it's honest and robust *because the
+user's future traffic is the same distribution as their past*. The OOD problem that dooms the leaderboard
+keepset doesn't exist for a personal model trained on personal data. That asymmetry is a Sailfish advantage.
+
 ## The pipeline
 ```
 scrape/scrape_toolcalls.mjs   ~/.claude + agent sandboxes  → data/tool_calls.jsonl (25k, ANSI-scrubbed)

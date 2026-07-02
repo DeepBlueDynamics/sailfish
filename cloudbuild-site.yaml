@@ -1,0 +1,50 @@
+# Deploy the Sailfish gateway/site to Cloud Run.  Mirrors grubcrawler's Kaniko-cached pattern.
+#
+#   gcloud builds submit --config cloudbuild-site.yaml --project gnosis-459403 \
+#     --substitutions=_SHA=$(git rev-parse --short HEAD)
+#
+# Then map DNS (wildcard exists on nuts.services):
+#   gcloud run domain-mappings create --service sailfish --domain sailfish.nuts.services \
+#     --region us-central1 --project gnosis-459403
+substitutions:
+  _SERVICE: sailfish
+  _REGION: us-central1
+  _IMAGE: gcr.io/gnosis-459403/sailfish
+  _SHA: dev
+
+steps:
+  - id: build
+    name: 'gcr.io/kaniko-project/executor:latest'
+    args:
+      - --destination=${_IMAGE}:latest
+      - --destination=${_IMAGE}:${_SHA}
+      - --cache=true
+      - --cache-ttl=168h
+      - --cache-repo=${_IMAGE}/cache
+      - --dockerfile=Dockerfile.site
+      - --context=dir:///workspace
+
+  - id: deploy
+    name: 'gcr.io/google.com/cloudsdktool/cloud-sdk:slim'
+    entrypoint: gcloud
+    args:
+      - run
+      - deploy
+      - ${_SERVICE}
+      - --image=${_IMAGE}:latest
+      - --region=${_REGION}
+      - --project=gnosis-459403
+      - --platform=managed
+      - --allow-unauthenticated
+      - --memory=512Mi
+      - --cpu=1
+      - --min-instances=0
+      - --max-instances=2
+      - --port=8080
+      - --update-env-vars=GIT_SHA=${_SHA},PUBLIC_BASE_URL=https://sailfish.nuts.services,NUTS_AUTH_JWKS_URL=https://auth.nuts.services/.well-known/jwks.json
+options:
+  logging: CLOUD_LOGGING_ONLY
+
+images:
+  - ${_IMAGE}:latest
+  - ${_IMAGE}:${_SHA}

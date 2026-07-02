@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sailfish — your agents' tool calls, a fast private model on your own GPU</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23050a12'/%3E%3Ctext x='50%25' y='64%25' font-size='20' text-anchor='middle'%3E%F0%9F%97%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<meta name="description" content="Fine-tune Gemma-4 on your own agents' tool-call history and serve it fast on your own GPU. Sovereign, local, no cloud lock-in. The fastest fish in the ocean, ported to your box.">
+<meta property="og:title" content="sailfish — sovereign fast inference">
+<meta property="og:description" content="Your agents' tool calls → a fast private model on your own GPU.">
+<meta property="og:url" content="https://sailfish.nuts.services">
+<style>
+  :root {
+    --bg:#050a12; --fg:#c4d4e2; --accent:#2fd8ff; --accent2:#5eead4; --dim:#4a5a6a;
+    --card:#0a121c; --border:#132234; --deep:#0d3a5c; --warn:#fbbf24; --ok:#5eead4;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  html { scroll-behavior:smooth; }
+  body {
+    background:
+      radial-gradient(1200px 500px at 70% -10%, #0a1f33 0%, transparent 60%),
+      var(--bg);
+    color:var(--fg);
+    font-family:'SF Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+    font-size:14px; line-height:1.7; padding:2.5rem 2rem; max-width:920px; margin:0 auto;
+    overflow-wrap:break-word;
+  }
+  .topbar { display:flex; justify-content:flex-end; gap:.75rem; align-items:center; margin-bottom:2rem; font-size:.78rem; }
+  .topbar .user { color:var(--dim); }
+  .topbar .user b { color:var(--accent2); }
+  .topbar a,.topbar button {
+    background:none; border:1px solid var(--border); color:var(--fg);
+    padding:.35rem .85rem; border-radius:6px; font-family:inherit; font-size:.78rem;
+    cursor:pointer; text-decoration:none; transition:all .15s;
+  }
+  .topbar a:hover,.topbar button:hover { border-color:var(--accent); color:var(--accent); }
+  h1 { font-size:2rem; letter-spacing:-.02em; margin-bottom:.4rem; color:#eaf4ff; font-weight:700; }
+  h1 .fish { -webkit-text-fill-color:initial; }
+  .tag { color:var(--accent); font-size:1rem; margin-bottom:1.5rem; }
+  h2 { font-size:1.15rem; margin:2.5rem 0 .8rem; color:#eaf4ff; border-bottom:1px solid var(--border); padding-bottom:.4rem; }
+  p { margin:.7rem 0; }
+  a { color:var(--accent); }
+  code,.mono { background:#0c1826; border:1px solid var(--border); border-radius:4px; padding:.1rem .4rem; color:var(--accent2); }
+  pre { background:var(--card); border:1px solid var(--border); border-radius:8px; padding:1rem 1.1rem; overflow-x:auto; margin:1rem 0; font-size:13px; }
+  pre .c { color:var(--dim); }
+  .cards { display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:1.2rem 0; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:1.1rem 1.2rem; }
+  .card h3 { color:var(--accent); font-size:.95rem; margin-bottom:.5rem; }
+  .card .big { font-size:1.6rem; color:#eaf4ff; }
+  .card .small { color:var(--dim); font-size:.78rem; }
+  .cta { display:inline-block; background:var(--deep); border:1px solid var(--accent); color:#eaf4ff;
+         padding:.6rem 1.3rem; border-radius:8px; text-decoration:none; margin:.4rem .5rem .4rem 0; font-weight:600; }
+  .cta:hover { background:#12507a; }
+  .cta.ghost { background:none; }
+  footer { margin-top:3rem; padding-top:1.2rem; border-top:1px solid var(--border); color:var(--dim); font-size:.78rem; }
+  @media(max-width:640px){ .cards{grid-template-columns:1fr;} body{padding:1.5rem 1.1rem;} }
+</style>
+</head>
+<body>
+  <div class="topbar" id="topbar">
+    <span class="user" id="userlbl"></span>
+    <a href="/login" id="loginbtn">log in</a>
+  </div>
+
+  <h1><span class="fish">🗡️🐟</span> sailfish</h1>
+  <div class="tag">your agents' tool calls → a fast private model on your own GPU</div>
+
+  <p>Sailfish turns your own agent tool-call history into a fast, private model that runs on your own
+  hardware. Point it at your local <span class="mono">nemesis8</span> logs, fine-tune Gemma-4 on a rented
+  GPU, download the model, and serve it — accelerated by speculative decoding on cards that can hold it.
+  No cloud, no API, nothing rented. The fastest fish in the ocean, ported to your box.</p>
+
+  <div class="cards">
+    <div class="card"><h3>on a $300 RTX 3060</h3><div class="big">~76 tok/s</div>
+      <div class="small">tool-runs · 177 on repetitive output · zero-VRAM n-gram speculation · measured</div></div>
+    <div class="card"><h3>on datacenter Ampere (A10G)</h3><div class="big">472 tok/s</div>
+      <div class="small">stock INT4 + MTP drafter @ PPL 2.377 · the Fast-Gemma-Challenge technique</div></div>
+  </div>
+
+  <a class="cta" href="#install">install locally</a>
+  <a class="cta ghost" href="/login">use the hosted model →</a>
+
+  <h2>run it on your machine</h2>
+  <p id="install">One line. Autodetects your GPU and serves the fastest valid config on
+  <span class="mono">localhost:22343</span> — OpenAI-compatible, so any agent or harness talks to it.</p>
+  <pre><span class="c"># Windows (PowerShell)</span>
+irm https://sailfish.nuts.services/install.ps1 | iex
+
+<span class="c"># macOS / Linux</span>
+curl -fsSL https://sailfish.nuts.services/install.sh | sh</pre>
+
+  <h2>how it picks your setup</h2>
+  <pre>&lt; 16 GB  (RTX 3060 12GB)   fine-tuned Gemma-4-E4B, llama.cpp, free n-gram speculation
+&gt;= 16 GB (5090, A10G, L4)   stock INT4 + MTP drafter — the challenge stack, full speed
+detection is automatic — VRAM + architecture, at container start</pre>
+
+  <h2>the loop</h2>
+  <p><b>1. Harvest</b> — pull your tool-call history from <span class="mono">nemesis8</span> (or a local
+  scrape). <b>2. Curate</b> — a frontier model cleans it into training data; you review it, with a cost cap.
+  <b>3. Train</b> — fine-tune on an ephemeral cloud GPU (your Google Cloud, or ours). <b>4. Serve</b> —
+  download, hot-swap, and your model answers at reading speed, offline, yours.</p>
+
+  <h2>talk to it</h2>
+  <pre>curl localhost:22343/v1/chat/completions -d '{
+  "model":"gemma4-e4b",
+  "messages":[{"role":"user","content":"what time is it?"}],
+  "tools":[ ...your tools... ]
+}'</pre>
+  <p>Same shape as OpenAI. Point Hyperia, your agent harness, or anything else at it.</p>
+
+  <footer>
+    <span class="mono">sailfish.nuts.services</span> · a
+    <a href="https://nuts.services">nuts.services</a> project by DeepBlueDynamics ·
+    <a href="https://github.com/DeepBlueDynamics/sailfish">source</a>
+  </footer>
+
+<script>
+  // reflect nuts-auth login state (JWT stashed by /auth/callback)
+  (function(){
+    const jwt = localStorage.getItem('sailfish_jwt');
+    if(!jwt) return;
+    try {
+      const p = JSON.parse(atob(jwt.split('.')[1]));
+      const who = p.email || p.hf_user || p.sub || 'you';
+      document.getElementById('userlbl').innerHTML = 'logged in as <b>'+who+'</b>';
+      const b = document.getElementById('loginbtn');
+      b.textContent = 'log out';
+      b.href = '#'; b.onclick = () => { localStorage.removeItem('sailfish_jwt'); location.reload(); return false; };
+    } catch(e){}
+  })();
+</script>
+</body>
+</html>
