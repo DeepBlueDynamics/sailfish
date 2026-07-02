@@ -1,0 +1,25 @@
+# Sailfish TIER A engine (P4) — vLLM: gemma-4-E4B INT4 target + MTP drafter, the challenge stack.
+#
+# BLOCKED until we publish our own INT4 build: vLLM cannot load community-quantized gemma-4 (every
+# community checkpoint quantizes the audio/vision towers and the loader demands bf16 there —
+# vLLM #40247; ciocan and Vishva007 both fail identically). Unblock = DeepBlueDynamics/sailfish-e4b-int4
+# (llm-compressor W4A16, towers bf16) per PLAN.md §5/§P4. Serve.sh below is otherwise ready.
+FROM vllm/vllm-openai:latest
+
+LABEL org.opencontainers.image.title="sailfish.nuts.services (Tier A / vLLM)"
+LABEL org.opencontainers.image.description="Sovereign fast gemma-4-E4B, INT4 + MTP speculative decoding"
+
+ENV HF_HUB_ENABLE_HF_TRANSFER=1 \
+    SAILFISH_TARGET=DeepBlueDynamics/sailfish-e4b-int4 \
+    SAILFISH_DRAFTER=DeepBlueDynamics/sailfish-drafter-e4b \
+    SAILFISH_SPEC_K=7 \
+    SAILFISH_QUANT=auto \
+    SAILFISH_MAXLEN=8192 \
+    SAILFISH_GPU_UTIL=0.92 \
+    SAILFISH_PORT=22343
+
+COPY serve.sh /opt/sailfish/serve.sh
+RUN chmod +x /opt/sailfish/serve.sh
+
+EXPOSE 22343
+ENTRYPOINT ["/opt/sailfish/serve.sh"]

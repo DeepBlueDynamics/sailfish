@@ -1,23 +1,40 @@
-# Sailfish :: container — sovereign fast model on one 12 GB Ampere card (RTX 3060, sm_86).
+# Sailfish appliance — the image the installer pulls: `docker pull deepbluedynamics/sailfish`.
 #
-# vLLM OpenAI server: gemma-4-E4B-it INT4 target + speculative drafter (spec-decode baked in).
-# The drafter is swappable via SAILFISH_DRAFTER — point it at the tuned tool-drafter when ready.
-FROM vllm/vllm-openai:latest
+# ONE image, ONE port (22343): the llama.cpp Tier B engine (measured-working on a 12 GB 3060 —
+# 76 tool-runs / 177 repetitive TPS with zero-VRAM n-gram speculation) + the FastAPI gateway
+# (site at /, OpenAI /v1 proxy, /api/status). The entrypoint autodetects the GPU, launches the
+# engine on an internal port, and fronts it with the gateway.
+#
+# Tier A (>=16 GB: vLLM + MTP drafter, the challenge stack) ships as a separate image in P4 —
+# see Dockerfile.vllm. This image reports Tier-A *capability* on big cards via /api/status.
+FROM ghcr.io/ggml-org/llama.cpp:server-cuda
 
-LABEL org.opencontainers.image.title="sailfish.nuts.services"
-LABEL org.opencontainers.image.description="Sovereign fast gemma-4-E4B with speculative decoding"
+LABEL org.opencontainers.image.title="deepbluedynamics/sailfish"
+LABEL org.opencontainers.image.description="Sovereign fast gemma-4-E4B on your own GPU (Tier B: llama.cpp + n-gram speculation)"
+LABEL org.opencontainers.image.source="https://github.com/DeepBlueDynamics/sailfish"
 
-ENV HF_HUB_ENABLE_HF_TRANSFER=1 \
-    SAILFISH_TARGET=ciocan/gemma-4-E4B-it-W4A16 \
-    SAILFISH_DRAFTER=google/gemma-4-E4B-it-qat-q4_0-unquantized-assistant \
-    SAILFISH_SPEC_K=5 \
-    SAILFISH_QUANT=auto \
-    SAILFISH_MAXLEN=8192 \
-    SAILFISH_GPU_UTIL=0.92 \
-    SAILFISH_PORT=22343
+# Python for the gateway + curl for the health probe. venv avoids PEP-668 externally-managed errors.
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        python3 python3-venv curl ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-COPY serve.sh /opt/sailfish/serve.sh
-RUN chmod +x /opt/sailfish/serve.sh
+ENV SAILFISH_PY=/opt/sailfish/venv/bin/python
+RUN python3 -m venv /opt/sailfish/venv \
+    && /opt/sailfish/venv/bin/pip install --no-cache-dir \
+        fastapi==0.115.0 "uvicorn[standard]==0.30.6" httpx==0.27.2
+
+WORKDIR /opt/sailfish
+ENV PYTHONPATH=/opt/sailfish \
+    PYTHONUNBUFFERED=1 \
+    SAILFISH_PORT=22343 \
+    SAILFISH_ENGINE_PORT=8080 \
+    SAILFISH_MODEL=gemma4-e4b
+
+COPY app/ ./app/
+COPY site/ ./site/
+COPY container/entrypoint.sh /opt/sailfish/entrypoint.sh
+RUN chmod +x /opt/sailfish/entrypoint.sh
 
 EXPOSE 22343
-ENTRYPOINT ["/opt/sailfish/serve.sh"]
+# override the base image's llama-server entrypoint
+ENTRYPOINT ["/opt/sailfish/entrypoint.sh"]

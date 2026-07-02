@@ -23,7 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.config import settings
 from app.auth import get_optional_user, user_email
-from app.gpu import detect_gpu, choose_tier
+from app.gpu import detect_gpu, choose_tier, capable_tier
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger("sailfish")
@@ -49,10 +49,17 @@ async def api_status():
     """The contract Hyperia/nemesis8 read (see HYPERIA_INTEGRATION.md)."""
     gpu = detect_gpu()
     tier, engine, drafter = choose_tier(gpu, settings.tier_override)
+    capable = capable_tier(gpu)
+    note = None
+    if capable == "A" and tier == "B":
+        note = ("This card is Tier-A capable (vLLM + MTP drafter, the challenge stack). "
+                "The Tier-A image ships in P4; serving Tier B (llama.cpp + n-gram) now.")
     return {
         "service": "sailfish",
         "version": os.environ.get("GIT_SHA", "dev"),
         "tier": tier, "engine": engine, "drafter": drafter,
+        "tier_capable": capable,
+        "note": note,
         "model": settings.engine_model,
         "gpu": gpu,
         "tps_recent": _recent_tps,

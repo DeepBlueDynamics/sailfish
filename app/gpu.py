@@ -30,6 +30,14 @@ def detect_gpu() -> Dict:
         return {"present": False, "reason": str(e)[:200]}
 
 
+def capable_tier(gpu: Dict) -> str:
+    """The BEST tier this card could run (by VRAM), ignoring which engine the image ships.
+    Lets a big-card user see they're Tier-A capable even while the P1 image serves Tier B."""
+    if not gpu.get("present"):
+        return "none"
+    return "A" if gpu.get("vram_gb", 0) >= 16 else "B"
+
+
 def choose_tier(gpu: Dict, override: str = "auto") -> Tuple[str, str, str]:
     """Returns (tier, engine, drafter)."""
     if override in ("A", "B"):
