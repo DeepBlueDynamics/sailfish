@@ -37,6 +37,11 @@ Electron login exists to unlock hosted *inference* when the user has no local ca
 - `GET /v1/models` — lists the served model id.
 - Local is unauthenticated (localhost-only). Hosted requires `Authorization: Bearer <nuts-auth JWT>`.
 
+## The tool-call loop — complete worked example
+See **`HYPERIA_TOOLCALL_GUIDE.md`** for the full, *verified-against-the-running-engine* tool-call flow:
+real turn-1/turn-2 payloads, the three gotchas (`arguments` is a JSON string, echo the bare `id`,
+`reasoning_content` exists), a drop-in TypeScript client + agent loop, and the MCP→OpenAI tool mapping.
+
 ## Usage notes for Hyperia
 - **Model id:** read it from `/v1/models` — do not hardcode (stock vs fine-tuned swaps change it).
 - **Tool-calling:** pass Hyperia's tool schemas in the standard OpenAI `tools` array. Measured 6/6
