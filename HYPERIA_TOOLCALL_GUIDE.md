@@ -143,6 +143,38 @@ async function runAgent(task: string, tools: any[], exec: (n:string,a:any)=>Prom
 - **Multimodal:** `/v1/models` reports `capabilities:["completion","multimodal"]` — image inputs are
   possible later, but Tier B is tuned for text/tool traffic; don't rely on vision yet.
 
+## Recommended: gate tools behind doors (gather + expand as entered)
+The ≤~20-tools rule isn't a limitation to grudgingly accept — it's a design win if you **gate the tools
+behind doors** instead of flattening the whole catalog at the model. Present a small menu; expand it only
+as the agent walks through a door. Hyperia already has the machinery for this — `ToolSearch` is its own
+9th-most-used tool — so this is a wiring choice, not new infrastructure.
+
+**The pattern (progressive disclosure / faceted tool routing):**
+1. **Level-0 menu = core + doors.** Every turn starts with a handful of always-on tools (the ones used
+   constantly — `run_shell`, `read_file`, …) **plus a few "door" tools**: coarse category openers
+   (`open_terminal_tools`, `open_web_tools`, `open_task_tools`, …) and/or a single `search_tools` door
+   that takes a natural-language query. Doors are cheap: name + one-line description of what's behind them.
+2. **Gather on entry.** When the model calls a door — `open_web_tools` or `search_tools("scrape a page")`
+   — Hyperia *gathers* that door's tool schemas (by namespace, or by relevance from `ToolSearch`) and
+   returns a tool result naming what's now available.
+3. **Expand as entered.** On the **next** request, inject those gathered schemas into the `tools` array so
+   the model can actually call them. The live menu grows only along the path the agent is walking.
+4. **Keep the live set bounded (≤~20).** Collapse doors the agent has left (drop their schemas back to
+   name-only), so depth is unlimited but breadth at any step stays inside the 4B model's sweet spot.
+
+**Why it's the right move here:**
+- **Accuracy:** a 4B model picks correctly from 20 relevant tools, not 100 mixed ones (we measured 6/6 on
+  a tight menu). Doors keep every decision small.
+- **Context:** Tier B is 8k tokens. 100 full tool schemas can eat thousands of tokens before the task even
+  starts; doors cost ~a line each until opened.
+- **Scale:** total tool count becomes irrelevant — you can expose thousands behind doors and the model
+  never sees more than a room at a time.
+- **It mirrors how Hyperia already works** (ToolSearch = a door; deferred tools = tools behind doors whose
+  schemas load on demand). This just makes that the *front door* of the Sailfish tool loop.
+
+Mechanically it's the same loop above — a door is just a tool whose "result" is "here's what's now
+open," and the expansion happens by editing the `tools` array you send on the next turn.
+
 ## Performance you can expect (measured, RTX 3060)
 - **First call after idle:** slow (model/graph warm) — allow ~120 s, show "warming up," don't time out.
 - **Tool/agentic traffic:** ~74 tok/s steady on tool runs; **5–12× faster than stock Ollama on repeated /
