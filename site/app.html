@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>sailfish console</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='6' fill='%23050a12'/%3E%3Ctext x='50%25' y='64%25' font-size='20' text-anchor='middle'%3E%F0%9F%97%A1%EF%B8%8F%3C/text%3E%3C/svg%3E">
+<style>
+  :root{--bg:#050a12;--fg:#c4d4e2;--accent:#2fd8ff;--accent2:#5eead4;--dim:#4a5a6a;
+        --card:#0a121c;--border:#132234;--deep:#0d3a5c;--warn:#fbbf24;--ok:#5eead4;--bad:#f87171;}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:radial-gradient(1200px 500px at 70% -10%,#0a1f33 0,transparent 60%),var(--bg);
+       color:var(--fg);font-family:'SF Mono','Fira Code','Cascadia Code',ui-monospace,monospace;
+       font-size:13.5px;line-height:1.6;padding:1.5rem 2rem;max-width:1000px;margin:0 auto}
+  header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem}
+  h1{font-size:1.4rem;color:#eaf4ff}
+  h1 a{color:inherit;text-decoration:none}
+  .user{font-size:.78rem;color:var(--dim)} .user b{color:var(--accent2)}
+  nav{display:flex;gap:.4rem;border-bottom:1px solid var(--border);margin-bottom:1.3rem}
+  nav button{background:none;border:0;border-bottom:2px solid transparent;color:var(--dim);
+             padding:.5rem .9rem;font-family:inherit;font-size:.9rem;cursor:pointer}
+  nav button.active{color:var(--accent);border-bottom-color:var(--accent)}
+  .view{display:none} .view.active{display:block}
+  .card{background:var(--card);border:1px solid var(--border);border-radius:10px;padding:1rem 1.2rem;margin:.8rem 0}
+  .card h3{color:var(--accent);font-size:.95rem;margin-bottom:.6rem}
+  .kv{display:grid;grid-template-columns:180px 1fr;gap:.2rem .8rem;font-size:.86rem}
+  .kv .k{color:var(--dim)}
+  label{display:block;font-size:.8rem;color:var(--dim);margin:.6rem 0 .2rem}
+  input,select{width:100%;background:#0c1826;border:1px solid var(--border);border-radius:6px;
+               color:var(--fg);padding:.45rem .6rem;font-family:inherit;font-size:.86rem}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:.8rem}
+  button.act{background:var(--deep);border:1px solid var(--accent);color:#eaf4ff;padding:.5rem 1.1rem;
+             border-radius:7px;font-family:inherit;font-weight:600;cursor:pointer;margin-top:.8rem}
+  button.act:hover{background:#12507a} button.act:disabled{opacity:.4;cursor:not-allowed}
+  button.ghost{background:none}
+  pre{background:#0c1826;border:1px solid var(--border);border-radius:7px;padding:.8rem;overflow:auto;
+      font-size:12px;max-height:340px;white-space:pre-wrap;word-break:break-word}
+  .pill{display:inline-block;padding:.1rem .5rem;border-radius:20px;font-size:.72rem;border:1px solid var(--border)}
+  .ok{color:var(--ok);border-color:#1d4d3a} .warn{color:var(--warn);border-color:#4d3d10} .bad{color:var(--bad);border-color:#4d1d1d}
+  .muted{color:var(--dim);font-size:.8rem}
+  table{width:100%;border-collapse:collapse;font-size:.82rem;margin-top:.4rem}
+  td,th{text-align:left;padding:.25rem .5rem;border-bottom:1px solid var(--border)}
+  a{color:var(--accent)}
+</style>
+</head>
+<body>
+<header>
+  <h1><a href="/">🗡️🐟 sailfish</a> <span class="muted" style="font-size:.8rem">console</span></h1>
+  <span class="user" id="userlbl"></span>
+</header>
+
+<nav>
+  <button data-tab="status" class="active">Status</button>
+  <button data-tab="data">Data</button>
+  <button data-tab="curate">Curate</button>
+  <button data-tab="train">Train</button>
+</nav>
+
+<!-- STATUS -->
+<section class="view active" id="v-status">
+  <div class="card">
+    <h3>Serving</h3>
+    <div class="kv" id="status-kv"><div class="k">loading…</div><div></div></div>
+  </div>
+  <div class="card">
+    <h3>Try it</h3>
+    <label>prompt</label>
+    <input id="chat-in" value="What time is it in Tokyo? Use a tool if you have one.">
+    <button class="act" id="chat-go">send</button>
+    <pre id="chat-out" style="margin-top:.6rem;display:none"></pre>
+  </div>
+</section>
+
+<!-- DATA -->
+<section class="view" id="v-data">
+  <div class="card">
+    <h3>Sources</h3>
+    <div id="sources">loading…</div>
+    <button class="act" id="scrape-go">Harvest local transcripts</button>
+    <span class="muted" id="scrape-note"> reads ~/.claude read-only; nothing is uploaded</span>
+    <pre id="scrape-out" style="display:none"></pre>
+  </div>
+  <div class="card">
+    <h3>Corpus</h3>
+    <div id="stats">—</div>
+  </div>
+</section>
+
+<!-- CURATE -->
+<section class="view" id="v-curate">
+  <div class="card">
+    <h3>Curate with a frontier model</h3>
+    <p class="muted">A frontier model drops noisy/ambiguous examples. <b>Estimate first</b> — no tokens
+      are spent until you confirm, and the $ cap halts the run.</p>
+    <div class="row">
+      <div><label>provider</label>
+        <select id="cur-provider">
+          <option value="anthropic">anthropic</option>
+          <option value="openai">openai</option>
+          <option value="glm">glm</option>
+          <option value="gemini">gemini</option>
+        </select></div>
+      <div><label>model (blank = default)</label><input id="cur-model" placeholder="claude-haiku-4-5"></div>
+    </div>
+    <div class="row">
+      <div><label>cost cap (USD)</label><input id="cur-cap" type="number" value="5" step="1" min="1"></div>
+      <div><label>API key (blank = server env)</label><input id="cur-key" type="password" placeholder="sk-… / not stored"></div>
+    </div>
+    <button class="act" id="cur-est">Estimate cost</button>
+    <button class="act" id="cur-run" disabled>Run curation</button>
+    <div id="cur-estout" style="margin-top:.7rem"></div>
+    <pre id="cur-runout" style="display:none"></pre>
+  </div>
+</section>
+
+<!-- TRAIN -->
+<section class="view" id="v-train">
+  <div class="card">
+    <h3>Train on your own Google Cloud</h3>
+    <p class="muted">Generates a self-contained script + a data bundle. You run it in your gcloud shell —
+      an ephemeral spot A100 trains and pushes to your HF repo, then self-destructs. We never touch your credentials.</p>
+    <div class="row">
+      <div><label>GCP project id</label><input id="tr-project" placeholder="my-project-123"></div>
+      <div><label>region</label><input id="tr-region" value="us-central1"></div>
+    </div>
+    <div class="row">
+      <div><label>Hugging Face repo (write)</label><input id="tr-repo" placeholder="you/gemma4-e4b-toolft"></div>
+      <div><label>epochs</label><input id="tr-epochs" type="number" value="1" step="0.5" min="0.5"></div>
+    </div>
+    <button class="act" id="tr-gen">Generate script</button>
+    <a class="act ghost" id="tr-bundle" href="/api/train/bundle" style="text-decoration:none">Download data bundle</a>
+    <div id="tr-out" style="margin-top:.7rem"></div>
+  </div>
+</section>
+
+<script>
+const jwt = localStorage.getItem('sailfish_jwt');
+const H = () => jwt ? {'Authorization':'Bearer '+jwt,'content-type':'application/json'} : {'content-type':'application/json'};
+const $ = id => document.getElementById(id);
+const esc = s => (s||'').replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+(function(){ if(!jwt) return; try{const p=JSON.parse(atob(jwt.split('.')[1]));
+  $('userlbl').innerHTML='logged in as <b>'+(p.email||p.hf_user||p.sub||'you')+'</b>';}catch(e){} })();
+
+// tabs
+document.querySelectorAll('nav button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav button').forEach(x=>x.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(x=>x.classList.remove('active'));
+  b.classList.add('active'); $('v-'+b.dataset.tab).classList.add('active');
+  if(b.dataset.tab==='data') loadData();
+});
+
+// STATUS
+async function loadStatus(){
+  try{ const s = await (await fetch('/api/status')).json();
+    const g = s.gpu||{};
+    const gpu = g.present ? `${g.name} · ${g.vram_gb} GB · ${g.arch}` : `none (${g.reason||'no GPU'})`;
+    let rows = {
+      'tier (serving)': s.tier, 'engine': s.engine, 'drafter': s.drafter,
+      'tier capable': s.tier_capable, 'model': s.model, 'GPU': gpu,
+      'recent TPS': s.tps_recent||'—', 'version': s.version, 'hosted': s.hosted};
+    let html='';
+    for(const k in rows) html += `<div class="k">${k}</div><div>${esc(String(rows[k]))}</div>`;
+    if(s.note) html += `<div class="k">note</div><div class="warn">${esc(s.note)}</div>`;
+    $('status-kv').innerHTML = html;
+  }catch(e){ $('status-kv').innerHTML='<div class="bad">status unavailable</div><div></div>'; }
+}
+$('chat-go').onclick=async()=>{
+  const out=$('chat-out'); out.style.display='block'; out.textContent='…';
+  try{ const r = await fetch('/v1/chat/completions',{method:'POST',headers:H(),body:JSON.stringify({
+      model:'gemma4-e4b',messages:[{role:'user',content:$('chat-in').value}]})});
+    const j = await r.json();
+    out.textContent = j.choices?.[0]?.message?.content || JSON.stringify(j,null,2);
+  }catch(e){ out.textContent='engine not reachable: '+e; }
+};
+
+// DATA
+async function loadData(){
+  try{ const d = await (await fetch('/api/data/sources')).json();
+    const n8 = d.nemesis8.present ? `<span class="pill ok">nemesis8 up</span>` : `<span class="pill">nemesis8 absent</span>`;
+    let rows = d.sources.map(s=>`<tr><td>${esc(s.label)}</td><td>${s.tool_calls??'—'}</td><td class="muted">${esc(s.kind)}</td></tr>`).join('');
+    $('sources').innerHTML = n8 + `<table><tr><th>source</th><th>tool calls</th><th>kind</th></tr>${rows}</table>`;
+  }catch(e){ $('sources').innerHTML='<span class="bad">could not list sources</span>'; }
+  try{ const st = await (await fetch('/api/data/stats')).json();
+    if(st.top_tools){ const tt = st.top_tools.slice(0,10).map(t=>`${esc(t[0])}:${t[1]}`).join('  ');
+      $('stats').innerHTML = `<div class="kv"><div class="k">tool calls</div><div>${st.tool_calls}</div>
+        <div class="k">unique tools</div><div>${st.unique_tools}</div>
+        <div class="k">files</div><div>${st.files}</div></div>
+        <p class="muted" style="margin-top:.5rem">top: ${tt}</p>`;
+    } else $('stats').innerHTML = `<span class="muted">${esc(st.note||'no corpus yet')}</span>`;
+  }catch(e){ $('stats').textContent='—'; }
+}
+$('scrape-go').onclick=async()=>{
+  const out=$('scrape-out'); out.style.display='block'; out.textContent='harvesting…';
+  try{ const r = await fetch('/api/data/scrape',{method:'POST',headers:H(),body:'{}'});
+    out.textContent = JSON.stringify(await r.json(),null,2); loadData();
+  }catch(e){ out.textContent='scrape failed: '+e; }
+};
+
+// CURATE
+$('cur-est').onclick=async()=>{
+  const p=$('cur-provider').value, m=$('cur-model').value, cap=$('cur-cap').value;
+  const q = new URLSearchParams({provider:p,cap_usd:cap}); if(m) q.set('model',m);
+  const j = await (await fetch('/api/curate/estimate?'+q)).json();
+  const cls = j.within_cap?'ok':'bad';
+  $('cur-estout').innerHTML = `<span class="pill ${cls}">est $${j.est_usd}</span>
+    ${j.examples} examples · ${j.provider}/${j.model} · cap $${j.cap_usd}
+    ${j.within_cap?'':' — <b class="warn">over cap; run will stop early or raise the cap</b>'}
+    <div class="muted">${esc(j.note)}</div>`;
+  $('cur-run').disabled = false;
+};
+$('cur-run').onclick=async()=>{
+  if(!confirm('This spends real money via the provider API (capped). Proceed?')) return;
+  const out=$('cur-runout'); out.style.display='block'; out.textContent='curating (this calls the frontier model in batches)…';
+  const body={confirm:true, provider:$('cur-provider').value, model:$('cur-model').value||undefined,
+              cap_usd:parseFloat($('cur-cap').value), key:$('cur-key').value||undefined};
+  try{ const r = await fetch('/api/curate/run',{method:'POST',headers:H(),body:JSON.stringify(body)});
+    const j = await r.json();
+    if(!j.ok){ out.textContent='error: '+(j.error||JSON.stringify(j)); return; }
+    out.textContent = `seen=${j.seen} kept=${j.kept} dropped=${j.dropped} spent=$${j.spent_usd} (${j.stopped})\n\n`
+      + (j.samples||[]).slice(0,20).map(s=>`${s.keep?'KEEP':'drop'}  ${s.tool}  — ${s.reason}`).join('\n');
+  }catch(e){ out.textContent='curate failed: '+e; }
+};
+
+// TRAIN
+$('tr-gen').onclick=async()=>{
+  const body={project:$('tr-project').value,region:$('tr-region').value,
+              hf_repo:$('tr-repo').value,epochs:parseFloat($('tr-epochs').value)};
+  const r = await fetch('/api/train/byo',{method:'POST',headers:H(),body:JSON.stringify(body)});
+  if(r.status===400){ $('tr-out').innerHTML=`<span class="bad">${esc((await r.json()).detail)}</span>`; return; }
+  const j = await r.json();
+  $('tr-out').innerHTML = `<p class="muted">${esc(j.note)}</p>
+    <button class="act ghost" onclick="navigator.clipboard.writeText(window._script)">copy script</button>
+    <pre>${esc(j.script)}</pre>`;
+  window._script = j.script;
+};
+
+loadStatus(); setInterval(loadStatus, 5000);
+</script>
+</body>
+</html>

@@ -83,7 +83,7 @@ async def auth_callback():
     return HTMLResponse(
         "<!doctype html><meta charset=utf-8><title>signing in…</title>"
         "<script>const t=new URLSearchParams(location.hash.slice(1)).get('access_token');"
-        "if(t){localStorage.setItem('sailfish_jwt',t);}location.replace('/');</script>"
+        "if(t){localStorage.setItem('sailfish_jwt',t);}location.replace('/app');</script>"
         "<body style='background:#05070a;color:#7fdfff;font-family:monospace'>signing you in…</body>"
     )
 
@@ -208,6 +208,24 @@ async def proxy_v1(path: str, request: Request):
                     media_type=r.headers.get("content-type", "application/json"))
 
 
-# ---- static site last, so /api and /v1 win ----
+# ---- front door: local appliance opens the console; hosted opens the landing page ----
+def _page(name: str) -> HTMLResponse:
+    fp = SITE / name
+    if fp.exists():
+        return HTMLResponse(fp.read_text(encoding="utf-8"))
+    raise HTTPException(status_code=404, detail=f"{name} not built")
+
+
+@app.get("/", response_class=HTMLResponse)
+async def root():
+    return _page("index.html" if settings.require_auth else "app.html")
+
+
+@app.get("/app", response_class=HTMLResponse)
+async def console():
+    return _page("app.html")
+
+
+# ---- static site last, so /api, /v1, and the explicit pages above win ----
 if SITE.exists():
     app.mount("/", StaticFiles(directory=str(SITE), html=True), name="site")
