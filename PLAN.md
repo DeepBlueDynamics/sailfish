@@ -22,14 +22,15 @@ Code is on `main`. Not yet deployed to Cloud Run / published to Docker Hub (thos
   console at `/`; hosted opens the landing. `install.ps1`/`install.sh` mount `~/.claude` read-only.
   Kaniko note: no top-level `images:` (Kaniko pushes via --destination); use `/health` not `/healthz`
   (GFE swallows the exact path). Console + landing both carry the family footer.
-- **P1 (appliance) — RUNTIME-VERIFIED on a real RTX 3060; only the publish is BLOCKED.** Built the
-  image and ran it end-to-end: autodetect → tier B → llama.cpp+ngram engine (:8080) → gateway (:22343).
-  `/api/status` returns the full contract (RTX 3060, 12 GB, ampere). **Harness: 6/6 tool-call accuracy,
-  74 avg decode TPS** (clears the ≥70 bar; zero tool errors). Fixed a load-bearing boot bug found only by
-  running: overriding the base image's `WORKDIR=/app` left `llama-server` unable to find its `.so`; fix =
-  `LD_LIBRARY_PATH=/app:/usr/local/cuda/lib64` in the Dockerfile (+ a `.dockerignore`). **Remaining
-  BLOCKER: the `dockerhub-token` secret doesn't exist in gnosis-459403 — needs Kord's Docker Hub write
-  token to publish `deepbluedynamics/sailfish`; until then the installer one-liner pulls a nonexistent image.**
+- **P1 (appliance) — SHIPPED & PUBLISHED.** Built, runtime-verified on a real RTX 3060 (autodetect →
+  tier B → llama.cpp+ngram → gateway; harness passes the tool-selection smoke test at 74 avg decode TPS,
+  zero tool errors), and **published to Docker Hub** (`docker login` via Kord). Two variants live:
+  `deepbluedynamics/sailfish:latest` (thin — downloads the model on first run: stock from HF, or a trained
+  model from `gs://`/`https://` via `SAILFISH_MODEL_URL`) and `:bundled` (GGUF baked in, verified serving
+  offline with `--network none`). Fixed a load-bearing boot bug found only by running: overriding the base
+  image's `WORKDIR=/app` left `llama-server` unable to find its `.so`; fix = `LD_LIBRARY_PATH=/app:/usr/local/cuda/lib64`.
+  The installer one-liner now pulls a real, working image. (Full fresh-machine pull+run test pending a
+  free GPU/port — the dev 3060 is holding the running container.)
 - **P2 (data + curation) — code done, verified end-to-end.** Python scraper twin (25,960 calls/85
   tools/0 errors on real transcripts); `app/data.py` (nemesis8 probe + sources + scrape + zip);
   `app/curate.py` (estimate-free, per-batch cap halt, Anthropic + OpenAI-compat); `finetune_target.py`
