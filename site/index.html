@@ -74,11 +74,21 @@
   No cloud, no API, nothing rented. The fastest fish in the ocean, ported to your box.</p>
 
   <div class="cards">
-    <div class="card"><h3>on a $300 RTX 3060</h3><div class="big">~76 tok/s</div>
-      <div class="small">tool-runs · 177 on repetitive output · zero-VRAM n-gram speculation · measured</div></div>
+    <div class="card"><h3>on a $300 RTX 3060 (12 GB)</h3><div class="big">5–12× vs Ollama</div>
+      <div class="small">on agent traffic — tool calls, JSON, repeated edits · zero-VRAM n-gram speculation · measured</div></div>
     <div class="card"><h3>on datacenter Ampere (A10G)</h3><div class="big">472 tok/s</div>
       <div class="small">stock INT4 + MTP drafter @ PPL 2.377 · the Fast-Gemma-Challenge technique</div></div>
   </div>
+
+  <p class="small" style="margin-bottom:.3rem">measured head-to-head, same RTX 3060, greedy, median of 3:</p>
+  <pre>regime          Ollama e4b     Sailfish
+prose             68 tok/s       88 tok/s     1.3×
+code              69 tok/s       76 tok/s     1.1×
+repetitive        70 tok/s      854 tok/s      12×
+agentic JSON      67 tok/s      340 tok/s       5×</pre>
+  <p class="small">Ollama runs a heavier quant, so the prose edge mixes quant + stack — but the 5–12× on
+  repetitive/agentic output is pure speculation: Ollama is flat across every regime, Sailfish only speeds up
+  where tokens are predictable. That's exactly the output agents generate all day.</p>
 
   <a class="cta" href="#install">install locally</a>
   <a class="cta ghost" href="/login">use the hosted model →</a>
