@@ -10,6 +10,29 @@ numbers are cited wherever they exist; estimates are labeled as estimates.
 
 ---
 
+## Build status — 2026-07-02
+
+Code is on `main`. Not yet deployed to Cloud Run / published to Docker Hub (those are actions, below).
+
+- **P0 (ship surface) — code done.** `site/index.html` (ocean brand, measured numbers, nuts-auth
+  login state), `install.ps1`/`install.sh` (Docker + GPU probe + read-only `~/.claude` mount),
+  `Dockerfile.site` + `cloudbuild-site.yaml` (Kaniko→Cloud Run). **TODO: run the deploy + DNS mapping.**
+- **P1 (appliance) — code done, verified.** `container/Dockerfile` rewritten as the real
+  llama.cpp+gateway image (the old one was the broken vLLM/ciocan path); `container/entrypoint.sh`
+  autodetects → engine on :8080 → gateway on :22343. Gateway imports clean (14 routes), TestClient
+  smoke green. `cloudbuild-appliance.yaml` publishes to Docker Hub. **TODO: build+publish the image,
+  run the harness against it.**
+- **P2 (data + curation) — code done, verified end-to-end.** Python scraper twin (25,960 calls/85
+  tools/0 errors on real transcripts); `app/data.py` (nemesis8 probe + sources + scrape + zip);
+  `app/curate.py` (estimate-free, per-batch cap halt, Anthropic + OpenAI-compat); `finetune_target.py`
+  serving-format fix (tools in prompt, gemma-native tool_calls, completion-only loss). Cost gate
+  proven ($18.88 > $5 cap → refused; run without confirm → 400).
+- **P3 (training) — in progress.** BYO-cloud zip export exists; templated gcloud script generator next.
+- **UI shell (Status/Data/Curate/Train/Deploy views): TODO** — backend APIs all exist; only the
+  landing page is built so far.
+
+---
+
 ## 1. Mission
 
 Agent users generate thousands of tool calls a day. That history is (a) the perfect training data for a

@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# ============================================================================
+#  Sailfish BYO-Cloud trainer — GENERATED FOR YOU. Runs in YOUR gcloud shell,
+#  with YOUR credentials and YOUR Hugging Face token. Sailfish never sees them.
+#
+#  COST: one SPOT a2-highgpu-1g (1x A100 40GB). Spot pricing ~$1.5–4/hr and can be
+#  preempted. A 1-epoch LoRA on ~15k examples is roughly 20–60 min. Safeguards:
+#  the VM self-deletes when done, spot preemption deletes it, and --max-run-duration
+#  hard-kills it after 3h no matter what. You still pay for GCS storage of the bundle.
+#
+#  PREREQS: `gcloud` authed to your account; the Compute Engine API enabled; an A100
+#  spot quota in your region; and:  export HF_TOKEN=hf_...   (your HF *write* token)
+# ============================================================================
+set -euo pipefail
+
+PROJECT="{{PROJECT}}"
+REGION="{{REGION}}"
+ZONE="{{ZONE}}"
+HF_REPO="{{HF_REPO}}"          # e.g. yourname/gemma4-e4b-toolft
+BASE="{{BASE_MODEL}}"
+EPOCHS="{{EPOCHS}}"
+BUCKET="{{BUCKET}}"            # gs://... ; created if it doesn't exist
+BUNDLE="{{BUNDLE_FILE}}"       # the training bundle Sailfish gave you (in this dir)
+
+: "${HF_TOKEN:?export HF_TOKEN=hf_... (your Hugging Face write token) first}"
+[ -f "$BUNDLE" ] || { echo "bundle not found: $BUNDLE (download it from Sailfish first)"; exit 1; }
+
+VM="sailfish-train-$(date +%s)"
+
+echo "[sailfish] project=$PROJECT zone=$ZONE vm=$VM repo=$HF_REPO"
+gcloud config set project "$PROJECT" >/dev/null
+
+# 1. stage the bundle in your bucket
+gsutil ls "$BUCKET" >/dev/null 2>&1 || gsutil mb -l "$REGION" "$BUCKET"
+gsutil cp "$BUNDLE" "$BUCKET/$(basename "$BUNDLE")"
+BUNDLE_URL="$BUCKET/$(basename "$BUNDLE")"
+
+# 2. write the VM startup script (embedded — one file for you, nothing else to download)
+STARTUP="$(mktemp)"
+cat > "$STARTUP" <<'STARTUP_EOF'
+{{VM_STARTUP}}
+STARTUP_EOF
+
+# 3. launch the ephemeral spot A100 (Deep Learning image = CUDA + torch preinstalled)
+gcloud compute instances create "$VM" \
+  --zone="$ZONE" \
+  --machine-type=a2-highgpu-1g \
+  --accelerator=type=nvidia-tesla-a100,count=1 \
+  --provisioning-model=SPOT \
+  --instance-termination-action=DELETE \
+  --max-run-duration=10800s \
+  --maintenance-policy=TERMINATE \
+  --image-family=common-cu123 \
+  --image-project=deeplearning-platform-release \
+  --boot-disk-size=200GB \
+  --scopes=cloud-platform \
+  --metadata=bundle-url="$BUNDLE_URL",hf-repo="$HF_REPO",hf-token="$HF_TOKEN",base-model="$BASE",epochs="$EPOCHS" \
+  --metadata-from-file=startup-script="$STARTUP"
+
+rm -f "$STARTUP"
+echo "[sailfish] launched $VM. Streaming its log (Ctrl-C to stop watching — training keeps going)."
+echo "[sailfish] when it finishes, your model is at: https://huggingface.co/$HF_REPO"
+gcloud compute instances tail-serial-port-output "$VM" --zone="$ZONE" || true

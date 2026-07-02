@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app import curate as curate_mod
 from app import data as data_mod
+from app import train as train_mod
 from app.config import settings
 from app.auth import get_optional_user, user_email
 from app.gpu import detect_gpu, choose_tier, capable_tier
@@ -143,6 +144,33 @@ async def curate_run(request: Request, _=Depends(_require_local)):
         key=body.get("key"), cap_usd=body.get("cap_usd"),
         batch=int(body.get("batch", 10)), max_examples=body.get("max_examples"),
     )
+
+
+# ---- training (Train view): BYO Google Cloud — generate script + bundle ----
+@app.post("/api/train/byo")
+async def train_byo(request: Request, _=Depends(_require_local)):
+    body = await _json(request)
+    try:
+        script = train_mod.generate_byo_script(
+            project=body.get("project", ""), region=body.get("region", ""),
+            hf_repo=body.get("hf_repo", ""), zone=body.get("zone"),
+            base=body.get("base", "google/gemma-4-E4B-it"), epochs=float(body.get("epochs", 1.0)),
+            bucket=body.get("bucket"),
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"script": script, "filename": "train_on_gcloud.sh",
+            "bundle_url": "/api/train/bundle",
+            "note": "download the bundle, save this script beside it, then run it in your gcloud shell"}
+
+
+@app.get("/api/train/bundle")
+async def train_bundle(_=Depends(_require_local)):
+    try:
+        path = train_mod.build_training_bundle()
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    return FileResponse(str(path), media_type="application/zip", filename=path.name)
 
 
 async def _json(request: Request) -> dict:

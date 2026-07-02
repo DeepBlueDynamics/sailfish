@@ -1,0 +1,8 @@
+# Trainer deps for the ephemeral A100. torch is intentionally ABSENT — the Deep Learning VM image
+# ships a CUDA-matched torch and reinstalling it would break the match.
+transformers>=4.46
+peft>=0.13
+trl>=0.12
+datasets>=3.0
+accelerate>=1.0
+huggingface_hub>=0.26
