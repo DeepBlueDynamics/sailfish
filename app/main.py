@@ -16,11 +16,13 @@ from pathlib import Path
 from typing import Optional
 
 import httpx
-from fastapi import FastAPI, Request
-from fastapi.responses import (HTMLResponse, JSONResponse, RedirectResponse,
-                               Response, StreamingResponse)
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.responses import (FileResponse, HTMLResponse, JSONResponse,
+                               RedirectResponse, Response, StreamingResponse)
 from fastapi.staticfiles import StaticFiles
 
+from app import curate as curate_mod
+from app import data as data_mod
 from app.config import settings
 from app.auth import get_optional_user, user_email
 from app.gpu import detect_gpu, choose_tier, capable_tier
@@ -83,6 +85,71 @@ async def auth_callback():
         "if(t){localStorage.setItem('sailfish_jwt',t);}location.replace('/');</script>"
         "<body style='background:#05070a;color:#7fdfff;font-family:monospace'>signing you in…</body>"
     )
+
+
+# ---- appliance guard: in hosted mode, local data/curate ops need a logged-in user ----
+async def _require_local(user=Depends(get_optional_user)):
+    """Data harvest / curation are appliance features. On the hosted service (require_auth) they must
+    not run for anonymous callers — curation spends our curator key, scrape reads a host FS that isn't
+    there. Locally (no auth configured) they're open."""
+    if settings.require_auth and not user:
+        raise HTTPException(status_code=401, detail="login required")
+    return user
+
+
+# ---- data plane (Data view): discover sources, scrape, stats, export ----
+@app.get("/api/data/sources")
+async def data_sources():
+    return await data_mod.list_sources()
+
+
+@app.get("/api/data/stats")
+async def data_stats():
+    return data_mod.local_stats() or {"note": "no local corpus yet — run a scrape"}
+
+
+@app.post("/api/data/scrape")
+async def data_scrape(request: Request, _=Depends(_require_local)):
+    body = await _json(request)
+    return data_mod.run_local_scrape(roots=body.get("roots"))
+
+
+@app.get("/api/data/export")
+async def data_export(_=Depends(_require_local)):
+    path = data_mod.export_zip()
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="nothing to export — scrape or curate first")
+    return FileResponse(str(path), media_type="application/zip", filename=path.name)
+
+
+# ---- curation (Curate view): ESTIMATE is free; RUN spends money and is cap-gated ----
+@app.get("/api/curate/estimate")
+async def curate_estimate(path: Optional[str] = None, provider: Optional[str] = None,
+                          model: Optional[str] = None, cap_usd: Optional[float] = None):
+    corpus = path or str(data_mod.DATA_DIR / "tool_calls.jsonl")
+    return curate_mod.estimate_cost(corpus, provider=provider, model=model, cap_usd=cap_usd)
+
+
+@app.post("/api/curate/run")
+async def curate_run(request: Request, _=Depends(_require_local)):
+    body = await _json(request)
+    if not body.get("confirm"):
+        raise HTTPException(status_code=400,
+                            detail="refused: call /api/curate/estimate and resend with confirm=true + cap_usd")
+    corpus = body.get("path") or str(data_mod.DATA_DIR / "tool_calls.jsonl")
+    out = body.get("out") or str(data_mod.DATA_DIR / "tool_calls.curated.jsonl")
+    return await curate_mod.curate(
+        corpus, out, provider=body.get("provider"), model=body.get("model"),
+        key=body.get("key"), cap_usd=body.get("cap_usd"),
+        batch=int(body.get("batch", 10)), max_examples=body.get("max_examples"),
+    )
+
+
+async def _json(request: Request) -> dict:
+    try:
+        return await request.json()
+    except Exception:
+        return {}
 
 
 # ---- OpenAI-compatible proxy to the serving engine ----

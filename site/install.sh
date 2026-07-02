@@ -25,8 +25,17 @@ fi
 echo "pulling deepbluedynamics/sailfish ..."
 docker pull deepbluedynamics/sailfish:latest
 docker rm -f sailfish >/dev/null 2>&1 || true
+
+# Mount Claude Code transcripts read-only so the appliance can harvest tool calls locally.
+# Read-only, never uploaded — the training data stays on your box.
+CLAUDE_MOUNT=""
+if [ -d "$HOME/.claude" ]; then
+  CLAUDE_MOUNT="-v $HOME/.claude:/root/.claude:ro"
+  echo "mounting transcripts (read-only): $HOME/.claude"
+fi
 docker run -d --name sailfish $GPUFLAG -p 22343:22343 \
   -v sailfish-cache:/root/.cache \
+  $CLAUDE_MOUNT \
   --restart unless-stopped deepbluedynamics/sailfish:latest
 
 echo ""

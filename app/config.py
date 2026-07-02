@@ -19,6 +19,7 @@ class Settings:
 
     # nemesis8 data plane (host-exposed controller)
     n8_url: str = os.environ.get("SAILFISH_N8_URL", "http://host.docker.internal:18042")
+    n8_token: str = os.environ.get("SAILFISH_N8_TOKEN", "")  # optional bearer (local, so usually empty)
 
     # curation frontier model (user brings a token)
     curator_provider: str = os.environ.get("SAILFISH_CURATOR", "anthropic")

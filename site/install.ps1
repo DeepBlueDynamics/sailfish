@@ -24,8 +24,18 @@ if ($gpu) { try { $vram = [double](($gpu -split ",")[1] -replace "[^0-9.]","") /
 Write-Host "pulling deepbluedynamics/sailfish ..." -ForegroundColor DarkCyan
 docker pull deepbluedynamics/sailfish:latest
 docker rm -f sailfish 2>$null | Out-Null
+
+# Mount Claude Code transcripts read-only so the appliance can harvest tool calls locally.
+# Read-only, never uploaded — the training data stays on your box.
+$claudeArgs = @()
+$claudeDir = Join-Path $env:USERPROFILE ".claude"
+if (Test-Path $claudeDir) {
+  $claudeArgs = @("-v", "${claudeDir}:/root/.claude:ro")
+  Write-Host "mounting transcripts (read-only): $claudeDir" -ForegroundColor DarkCyan
+}
 docker run -d --name sailfish --gpus all -p 22343:22343 `
   -v sailfish-cache:/root/.cache `
+  @claudeArgs `
   --restart unless-stopped deepbluedynamics/sailfish:latest
 Write-Host ""
 Write-Host "sailfish is up -> http://localhost:22343" -ForegroundColor Green

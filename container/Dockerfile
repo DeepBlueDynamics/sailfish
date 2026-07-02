@@ -32,8 +32,11 @@ ENV PYTHONPATH=/opt/sailfish \
 
 COPY app/ ./app/
 COPY site/ ./site/
+COPY scrape/ ./scrape/
 COPY container/entrypoint.sh /opt/sailfish/entrypoint.sh
 RUN chmod +x /opt/sailfish/entrypoint.sh
+# writable corpus dir (the data plane scrapes local transcripts into here)
+RUN mkdir -p /opt/sailfish/data
 
 EXPOSE 22343
 # override the base image's llama-server entrypoint
