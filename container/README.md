@@ -6,11 +6,31 @@ autodetects the GPU, launches the engine internally, and fronts it with the gate
 
 ```
 container/
-  Dockerfile         →  THE appliance: llama.cpp + gateway (deepbluedynamics/sailfish)   ✅ ships P1
-  entrypoint.sh      →  autodetect GPU → launch engine (:8080) → launch gateway (:22343)
+  Dockerfile         →  THIN appliance: llama.cpp + gateway, model downloaded on first run  → :latest
+  Dockerfile.bundled →  BUNDLED appliance: same + the GGUF baked in (offline)                → :bundled
+  entrypoint.sh      →  autodetect GPU → resolve model (baked>URL>HF) → engine (:8080) → gateway (:22343)
   Dockerfile.vllm    →  Tier A engine: vLLM + INT4 + MTP drafter (the challenge stack)    🧱 P4, blocked
   serve.sh           →  vLLM launch script (used by Dockerfile.vllm)
   llamacpp/*.yml     →  bare-engine compose files for local A/B of drafter modes (no gateway)
+```
+
+## Two variants
+| tag | model | size | use when |
+|---|---|---|---|
+| **`:latest`** (thin) | downloaded on first run into a volume | ~7 GB | default — smaller pull, **swappable model** |
+| **`:bundled`** | baked into the image | ~12 GB | air-gapped / no first-run download / pinned weights |
+
+The thin image resolves its model source in priority order (see `entrypoint.sh`):
+1. `SAILFISH_MODEL_PATH` — a baked-in file (this is what `:bundled` sets).
+2. `SAILFISH_MODEL_URL` — download a **trained** model from `gs://bucket/model.gguf` (rewritten to
+   `storage.googleapis.com`, optional `SAILFISH_MODEL_TOKEN` bearer) **or** any `https://` URL; cached in
+   the volume. This is the "serve the model a user trained" path.
+3. `SAILFISH_GGUF` — the stock model from Hugging Face (default).
+```bash
+# serve a trained model from your GCS bucket instead of the stock one:
+docker run -d --gpus all -p 22343:22343 -v sailfish-cache:/root/.cache \
+  -e SAILFISH_MODEL_URL=gs://my-bucket/gemma4-e4b-toolft.gguf \
+  deepbluedynamics/sailfish:latest
 ```
 
 ## Build & run (the appliance)
@@ -45,7 +65,10 @@ these composes are a bench.
 |---|---|---|
 | `SAILFISH_PORT` | `22343` | published gateway port |
 | `SAILFISH_ENGINE_PORT` | `8080` | internal engine port (not published) |
-| `SAILFISH_GGUF` | `ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M` | swap to our fine-tuned GGUF when it ships |
+| `SAILFISH_MODEL_PATH` | *(set in `:bundled`)* | serve a baked-in local GGUF; no download (highest priority) |
+| `SAILFISH_MODEL_URL` | — | download a trained GGUF from `gs://…` or `https://…` (2nd priority) |
+| `SAILFISH_MODEL_TOKEN` | — | optional bearer for a private `SAILFISH_MODEL_URL` |
+| `SAILFISH_GGUF` | `ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M` | stock HF repo:quant (default, lowest priority) |
 | `SAILFISH_SPEC` | `ngram-mod` | speculation mode |
 | `SAILFISH_CTX` | `8192` | context length |
 | `SAILFISH_TIER` | `B` | set by the image; `auto`/`A`/`B` override for /api/status |
