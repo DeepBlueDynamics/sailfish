@@ -38,10 +38,32 @@ if [ -z "$LLAMA_BIN" ]; then
   echo "[sailfish] FATAL: llama-server binary not found in image"; exit 1
 fi
 
-echo "[sailfish] tier=$SAILFISH_TIER engine=llama.cpp spec=$SPEC model=$MODEL_HF ctx=$CTX"
+# --- resolve the model source: baked file > URL (gs:// | https, for trained models) > HF repo (stock) ---
+MODEL_ARGS=()
+if [ -n "${SAILFISH_MODEL_PATH:-}" ] && [ -f "${SAILFISH_MODEL_PATH:-}" ]; then
+  echo "[sailfish] model: baked-in ($SAILFISH_MODEL_PATH)"
+  MODEL_ARGS=(-m "$SAILFISH_MODEL_PATH")                    # bundled image — no download, offline-ready
+elif [ -n "${SAILFISH_MODEL_URL:-}" ]; then
+  url="$SAILFISH_MODEL_URL"
+  case "$url" in gs://*) url="https://storage.googleapis.com/${url#gs://}" ;; esac   # GCS object → https
+  dest="/root/.cache/sailfish/model.gguf"; mkdir -p "$(dirname "$dest")"
+  if [ ! -s "$dest" ]; then
+    echo "[sailfish] model: downloading from $SAILFISH_MODEL_URL"
+    AUTH=(); [ -n "${SAILFISH_MODEL_TOKEN:-}" ] && AUTH=(-H "Authorization: Bearer ${SAILFISH_MODEL_TOKEN}")
+    curl -fSL "${AUTH[@]}" -o "$dest" "$url" || { echo "[sailfish] FATAL: model download failed"; exit 1; }
+  else
+    echo "[sailfish] model: cached ($dest)"
+  fi
+  MODEL_ARGS=(-m "$dest")                                    # trained model pulled from GCS/HF/any https
+else
+  echo "[sailfish] model: Hugging Face ($MODEL_HF)"
+  MODEL_ARGS=(-hf "$MODEL_HF")                               # stock default — first-run download into the cache volume
+fi
+
+echo "[sailfish] tier=$SAILFISH_TIER engine=llama.cpp spec=$SPEC ctx=$CTX"
 echo "[sailfish] starting engine on :${ENGINE_PORT} ..."
 "$LLAMA_BIN" \
-  -hf "$MODEL_HF" \
+  "${MODEL_ARGS[@]}" \
   --spec-type "$SPEC" \
   --alias "$ALIAS" \
   -ngl 99 -c "$CTX" -fa on \

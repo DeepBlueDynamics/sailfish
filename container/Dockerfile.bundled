@@ -1,0 +1,24 @@
+# Sailfish appliance — BUNDLED variant: the model is baked into the image.
+#
+# Fully self-contained / offline-ready: no first-run download, weights pinned. Published as
+# `deepbluedynamics/sailfish:bundled`. The thin `:latest` downloads the model on first run instead
+# (from HF by default, or a GCS/https URL for a trained model) — see container/Dockerfile + entrypoint.sh.
+#
+#   docker build -f container/Dockerfile.bundled -t deepbluedynamics/sailfish:bundled .
+#
+# Trade-off: ~+5.3 GB image, and swapping the model means a rebuild. Use for air-gapped / no-download
+# installs; use :latest when you want a smaller pull and a swappable model.
+ARG BASE=deepbluedynamics/sailfish:latest
+FROM ${BASE}
+
+# The exact stock GGUF the thin image would otherwise pull on first run.
+ARG GGUF_URL=https://huggingface.co/ggml-org/gemma-4-E4B-it-GGUF/resolve/main/gemma-4-E4B-it-Q4_K_M.gguf
+RUN mkdir -p /opt/sailfish/models \
+    && curl -fSL -o /opt/sailfish/models/model.gguf "$GGUF_URL" \
+    && ls -la /opt/sailfish/models/model.gguf
+
+# entrypoint.sh serves this baked file (highest priority) — no network needed at start.
+ENV SAILFISH_MODEL_PATH=/opt/sailfish/models/model.gguf
+
+EXPOSE 22343
+ENTRYPOINT ["/opt/sailfish/entrypoint.sh"]
