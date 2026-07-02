@@ -22,13 +22,14 @@ Code is on `main`. Not yet deployed to Cloud Run / published to Docker Hub (thos
   console at `/`; hosted opens the landing. `install.ps1`/`install.sh` mount `~/.claude` read-only.
   Kaniko note: no top-level `images:` (Kaniko pushes via --destination); use `/health` not `/healthz`
   (GFE swallows the exact path). Console + landing both carry the family footer.
-- **P1 (appliance) — code done & verified; publish BLOCKED.** `container/Dockerfile` rewritten as the
-  real llama.cpp+gateway image (old one was the broken vLLM/ciocan path); `container/entrypoint.sh`
-  autodetects → engine :8080 → gateway :22343. Gateway boots clean (16 routes), TestClient smoke green.
-  `cloudbuild-appliance.yaml` ready. **BLOCKER: the `dockerhub-token` secret does not exist in
-  gnosis-459403 — needs Kord's Docker Hub write token to publish `deepbluedynamics/sailfish`. Until
-  then the installer one-liner pulls a nonexistent image.** Harness run against the built container also
-  pending the publish.
+- **P1 (appliance) — RUNTIME-VERIFIED on a real RTX 3060; only the publish is BLOCKED.** Built the
+  image and ran it end-to-end: autodetect → tier B → llama.cpp+ngram engine (:8080) → gateway (:22343).
+  `/api/status` returns the full contract (RTX 3060, 12 GB, ampere). **Harness: 6/6 tool-call accuracy,
+  74 avg decode TPS** (clears the ≥70 bar; zero tool errors). Fixed a load-bearing boot bug found only by
+  running: overriding the base image's `WORKDIR=/app` left `llama-server` unable to find its `.so`; fix =
+  `LD_LIBRARY_PATH=/app:/usr/local/cuda/lib64` in the Dockerfile (+ a `.dockerignore`). **Remaining
+  BLOCKER: the `dockerhub-token` secret doesn't exist in gnosis-459403 — needs Kord's Docker Hub write
+  token to publish `deepbluedynamics/sailfish`; until then the installer one-liner pulls a nonexistent image.**
 - **P2 (data + curation) — code done, verified end-to-end.** Python scraper twin (25,960 calls/85
   tools/0 errors on real transcripts); `app/data.py` (nemesis8 probe + sources + scrape + zip);
   `app/curate.py` (estimate-free, per-batch cap halt, Anthropic + OpenAI-compat); `finetune_target.py`

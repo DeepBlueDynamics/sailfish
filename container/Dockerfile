@@ -24,7 +24,10 @@ RUN python3 -m venv /opt/sailfish/venv \
         fastapi==0.115.0 "uvicorn[standard]==0.30.6" httpx==0.27.2
 
 WORKDIR /opt/sailfish
-ENV PYTHONPATH=/opt/sailfish \
+# The llama.cpp libs live in /app (the base image ran from WORKDIR=/app); we run from /opt/sailfish,
+# so put /app on the library path explicitly or llama-server can't find libllama-server-impl.so.
+ENV LD_LIBRARY_PATH=/app:/usr/local/cuda/lib64 \
+    PYTHONPATH=/opt/sailfish \
     PYTHONUNBUFFERED=1 \
     SAILFISH_PORT=22343 \
     SAILFISH_ENGINE_PORT=8080 \

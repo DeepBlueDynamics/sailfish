@@ -1,0 +1,9 @@
+.git
+**/__pycache__/
+*.pyc
+data/*.jsonl
+data/*.zip
+*.zip
+Dockerfile.site
+cloudbuild-*.yaml
+*.md
