@@ -1,0 +1,8 @@
+# Shell scripts and shipped web assets must stay LF — CRLF breaks `curl | sh`
+# and Docker COPY of the site into the Linux image.
+*.sh    text eol=lf
+*.py    text eol=lf
+*.yaml  text eol=lf
+*.yml   text eol=lf
+*.html  text eol=lf
+Dockerfile* text eol=lf
