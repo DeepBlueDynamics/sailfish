@@ -37,6 +37,7 @@ SITE = Path(__file__).parent.parent / "site"
 _recent_tps: float = 0.0
 
 
+@app.get("/health")     # primary; Google's frontend intercepts the exact path /healthz on Cloud Run
 @app.get("/healthz")
 async def healthz():
     return {"ok": True, "service": "sailfish"}

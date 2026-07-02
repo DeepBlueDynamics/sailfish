@@ -44,7 +44,5 @@ steps:
       - --update-env-vars=GIT_SHA=${_SHA},PUBLIC_BASE_URL=https://sailfish.nuts.services,NUTS_AUTH_JWKS_URL=https://auth.nuts.services/.well-known/jwks.json
 options:
   logging: CLOUD_LOGGING_ONLY
-
-images:
-  - ${_IMAGE}:latest
-  - ${_IMAGE}:${_SHA}
+# NOTE: no top-level `images:` — Kaniko pushes via --destination already; listing them here makes
+# Cloud Build verify them against the (unused) local daemon and fail even on a successful build.
