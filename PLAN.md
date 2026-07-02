@@ -14,14 +14,21 @@ numbers are cited wherever they exist; estimates are labeled as estimates.
 
 Code is on `main`. Not yet deployed to Cloud Run / published to Docker Hub (those are actions, below).
 
-- **P0 (ship surface) — code done.** `site/index.html` (ocean brand, measured numbers, nuts-auth
-  login state), `install.ps1`/`install.sh` (Docker + GPU probe + read-only `~/.claude` mount),
-  `Dockerfile.site` + `cloudbuild-site.yaml` (Kaniko→Cloud Run). **TODO: run the deploy + DNS mapping.**
-- **P1 (appliance) — code done, verified.** `container/Dockerfile` rewritten as the real
-  llama.cpp+gateway image (the old one was the broken vLLM/ciocan path); `container/entrypoint.sh`
-  autodetects → engine on :8080 → gateway on :22343. Gateway imports clean (14 routes), TestClient
-  smoke green. `cloudbuild-appliance.yaml` publishes to Docker Hub. **TODO: build+publish the image,
-  run the harness against it.**
+- **P0 (ship surface) — DEPLOYED.** Live on Cloud Run (`sailfish` service, gnosis-459403/us-central1);
+  `sailfish.nuts.services` domain-mapping created + DNS resolves via the wildcard (Google cert
+  provisioning). Landing page verified: GitHub links (topbar/hero/footer, grub-style), login-gated
+  Ollama guide, nuts.services family footer (sdrrand's, "Auth Dashboard"→"Dashboard"). The
+  **nuts.services family page lists sailfish** (nuts-site redeployed). Local appliance opens the
+  console at `/`; hosted opens the landing. `install.ps1`/`install.sh` mount `~/.claude` read-only.
+  Kaniko note: no top-level `images:` (Kaniko pushes via --destination); use `/health` not `/healthz`
+  (GFE swallows the exact path). Console + landing both carry the family footer.
+- **P1 (appliance) — code done & verified; publish BLOCKED.** `container/Dockerfile` rewritten as the
+  real llama.cpp+gateway image (old one was the broken vLLM/ciocan path); `container/entrypoint.sh`
+  autodetects → engine :8080 → gateway :22343. Gateway boots clean (16 routes), TestClient smoke green.
+  `cloudbuild-appliance.yaml` ready. **BLOCKER: the `dockerhub-token` secret does not exist in
+  gnosis-459403 — needs Kord's Docker Hub write token to publish `deepbluedynamics/sailfish`. Until
+  then the installer one-liner pulls a nonexistent image.** Harness run against the built container also
+  pending the publish.
 - **P2 (data + curation) — code done, verified end-to-end.** Python scraper twin (25,960 calls/85
   tools/0 errors on real transcripts); `app/data.py` (nemesis8 probe + sources + scrape + zip);
   `app/curate.py` (estimate-free, per-batch cap halt, Anthropic + OpenAI-compat); `finetune_target.py`
