@@ -108,6 +108,15 @@ curl -fsSL https://sailfish.nuts.services/install.sh | sh</pre>
 &gt;= 16 GB (5090, A10G, L4)   stock INT4 + MTP drafter — the challenge stack, full speed
 detection is automatic — VRAM + architecture, at container start</pre>
 
+  <p class="small" style="margin-bottom:.3rem">expected throughput by card, agentic output:</p>
+  <pre>card              tier   throughput                basis
+RTX 3060  12 GB    B      74 tok/s tool · 340–850   measured
+A10G      24 GB    A      472 tok/s                 measured (challenge)
+RTX 5090  32 GB    A      ~1,000+ tok/s             estimate · unvalidated</pre>
+  <p class="small">The 3060 and A10G rows are <b>measured</b>. The ≥16 GB Tier-A figures are
+  bandwidth-scaled <b>estimates</b> — vLLM on Blackwell and our own INT4 build aren't finished, so don't
+  hold us to the 5090 number until we run one.</p>
+
   <h2>the loop</h2>
   <p><b>1. Harvest</b> — pull your tool-call history from <span class="mono">nemesis8</span> (or a local
   scrape). <b>2. Curate</b> — a frontier model cleans it into training data; you review it, with a cost cap.
@@ -122,26 +131,20 @@ detection is automatic — VRAM + architecture, at container start</pre>
 }'</pre>
   <p>Same shape as OpenAI. Point Hyperia, your agent harness, or anything else at it.</p>
 
-  <h2 id="ollama">already use Ollama? <span class="lock" id="ollama-lock">🔒 log in to unlock</span></h2>
-  <div id="ollama-gate" style="display:none">
-    <p>Run the same model straight from Hugging Face in the Ollama you already have — no container required:</p>
-    <pre><span class="c"># the stock model, today</span>
+  <h2 id="ollama">already use Ollama?</h2>
+  <p>Run the same model straight from Hugging Face in the Ollama you already have — no container required:</p>
+  <pre><span class="c"># the stock model, today</span>
 ollama run hf.co/ggml-org/gemma-4-E4B-it-GGUF:Q4_K_M
 
 <span class="c"># your own tool-tuned model, once your BYO-cloud run pushes it as a GGUF repo</span>
 ollama run hf.co/<span id="ollama-repo">your-hf-user</span>/gemma4-e4b-toolft</pre>
-    <p>Then point your agents at Ollama's OpenAI endpoint <span class="mono">http://localhost:11434/v1</span> —
-    same shape as everything else.</p>
-    <p class="muted">Note: a LoRA fine-tune saves as safetensors; convert it to GGUF (llama.cpp
-    <span class="mono">convert_hf_to_gguf.py</span>) before <span class="mono">hf.co/…</span> works in Ollama —
-    or just let the Sailfish container serve it directly. Ollama gives you the model; the Sailfish
-    container gives you the model <b>plus</b> the speculative-decoding speed (66 → 177 TPS) Ollama's
-    runner doesn't do.</p>
-  </div>
-  <div id="ollama-cta">
-    <p class="muted">Log in and we'll hand you the one-liner to wire your Sailfish model into your local Ollama.</p>
-    <a class="cta ghost" href="/login">log in to get your Ollama command →</a>
-  </div>
+  <p>Then point your agents at Ollama's OpenAI endpoint <span class="mono">http://localhost:11434/v1</span> —
+  same shape as everything else.</p>
+  <p class="muted">A LoRA fine-tune saves as safetensors; convert it to GGUF (llama.cpp
+  <span class="mono">convert_hf_to_gguf.py</span>) before <span class="mono">hf.co/…</span> works in Ollama —
+  or just let the Sailfish container serve it directly. <b>Ollama gives you the model; the Sailfish
+  container gives you the model plus the speculative-decoding speed — 5–12× on agent traffic
+  (see the head-to-head above) — that Ollama's runner doesn't do.</b></p>
 
   <footer class="nuts-footer">
     <div class="nuts-footer-inner">
@@ -192,12 +195,10 @@ ollama run hf.co/<span id="ollama-repo">your-hf-user</span>/gemma4-e4b-toolft</p
       const b = document.getElementById('loginbtn');
       b.textContent = 'log out';
       b.href = '#'; b.onclick = () => { localStorage.removeItem('sailfish_jwt'); location.reload(); return false; };
-      // unlock the Ollama section for logged-in users
-      document.getElementById('ollama-gate').style.display = 'block';
-      document.getElementById('ollama-cta').style.display = 'none';
-      document.getElementById('ollama-lock').style.display = 'none';
-      const handle = p.hf_user || (p.email ? p.email.split('@')[0] : 'your-hf-user');
-      document.getElementById('ollama-repo').textContent = handle;
+      // personalize the Ollama repo hint if we can — the command itself is public, never gated
+      const handle = p.hf_user || (p.email ? p.email.split('@')[0] : null);
+      const repo = document.getElementById('ollama-repo');
+      if (handle && repo) repo.textContent = handle;
     } catch(e){}
   })();
 </script>
