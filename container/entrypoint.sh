@@ -60,13 +60,26 @@ else
   MODEL_ARGS=(-hf "$MODEL_HF")                               # stock default — first-run download into the cache volume
 fi
 
+# --- optional trained MTP draft head (VSD): spec=draft-mtp + a tiny GGUF beats ngram on fresh content.
+# Measured on a 3060 (2026-07-03): 76.5 tok/s agentic / 82.4 prose vs 65.8/63.7 ngram-mod (+16%/+29%).
+# NOTE: gemma4-assistant draft + flash-attn fatals on sm_86 (ggml fattn.cu head-dim case) -> when a
+# draft is set, FA defaults to off (the FA tax is ~2 tok/s; the draft more than pays it back).
+FA="${SAILFISH_FA:-on}"
+DRAFT_ARGS=()
+if [ -n "${SAILFISH_DRAFT_GGUF:-}" ]; then
+  DRAFT_ARGS=(-md "$SAILFISH_DRAFT_GGUF" --spec-draft-n-max "${SAILFISH_DRAFT_NMAX:-3}" -ngld 99)
+  FA="${SAILFISH_FA:-off}"
+  echo "[sailfish] draft head: $SAILFISH_DRAFT_GGUF (n-max ${SAILFISH_DRAFT_NMAX:-3}, fa=$FA)"
+fi
+
 echo "[sailfish] tier=$SAILFISH_TIER engine=llama.cpp spec=$SPEC ctx=$CTX"
 echo "[sailfish] starting engine on :${ENGINE_PORT} ..."
 "$LLAMA_BIN" \
   "${MODEL_ARGS[@]}" \
   --spec-type "$SPEC" \
+  "${DRAFT_ARGS[@]}" \
   --alias "$ALIAS" \
-  -ngl 99 -c "$CTX" -fa on \
+  -ngl 99 -c "$CTX" -fa "$FA" \
   --host 127.0.0.1 --port "$ENGINE_PORT" &
 ENGINE_PID=$!
 trap 'kill $ENGINE_PID 2>/dev/null' EXIT INT TERM
