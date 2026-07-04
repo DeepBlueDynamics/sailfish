@@ -1,6 +1,6 @@
 """Sailfish data plane — discover and harvest tool-call training data.
 
-Preferred path: the nemesis8 controller (NEMESIS8_INTEGRATION.md) at SAILFISH_N8_URL. Fallback: the
+Preferred path: the nemesis8 controller (docs/integrations/NEMESIS8_INTEGRATION.md) at SAILFISH_N8_URL. Fallback: the
 built-in Python scraper over local Claude Code transcripts (scrape/scrape_toolcalls.py). The UI treats
 whatever /sources returns as one list; this module unifies both.
 """

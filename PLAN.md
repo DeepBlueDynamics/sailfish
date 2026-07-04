@@ -173,7 +173,7 @@ Five views. Style: nuts.services family look (see §6.6), sailfish branding.
 5. **Deploy** — when a fine-tune artifact exists (their HF repo or uploaded file): download → convert to
    GGUF if needed → hot-swap Tier B model → restart engine → status shows new model id.
 
-### 6.3 Data plane — nemesis8 (spec: `NEMESIS8_INTEGRATION.md`, root)
+### 6.3 Data plane — nemesis8 (spec: `docs/integrations/NEMESIS8_INTEGRATION.md`)
 - Probe `http://host.docker.internal:18042` (wired; env-overridable). Endpoints: `/v1/training/sources`,
   `/v1/training/export` (JSONL stream or **zip**), `/v1/training/stats`. ANSI/control scrubbing at source.
 - nemesis8 also owns **container lifecycle** (install/start Sailfish on request — used by Hyperia's
@@ -222,8 +222,8 @@ Five views. Style: nuts.services family look (see §6.6), sailfish branding.
     (Mac = CPU/Metal note: llama.cpp runs, no CUDA — set expectations honestly on the page.)
 
 ### 6.7 Integration specs (root of this repo, per Kord)
-- `NEMESIS8_INTEGRATION.md` — data API + lifecycle role (port 18042 wired).
-- `HYPERIA_INTEGRATION.md` — detection ladder local → nemesis8-install → hosted; endpoint contract.
+- `docs/integrations/NEMESIS8_INTEGRATION.md` — data API + lifecycle role (port 18042 wired).
+- `docs/integrations/HYPERIA_INTEGRATION.md` — detection ladder local → nemesis8-install → hosted; endpoint contract.
 - Both are **specs we own**; the other teams implement their side whenever they spin up. Nothing in
   P0–P3 blocks on them.
 
@@ -303,7 +303,7 @@ Five views. Style: nuts.services family look (see §6.6), sailfish branding.
    Training requires running the container (no container → hosted-only usage, no training).
 5. **nemesis8 port 18042: wire it up as-is**; fix later if wrong.
 6. **No agent coordination right now** — Tyrannosaurus down; build solo; specs live in repo root
-   (`NEMESIS8_INTEGRATION.md`, `HYPERIA_INTEGRATION.md`) so Kord knows where they are.
+   (`docs/integrations/`) so Kord knows where they are.
 7. **Ship the site first** (P0), including DNS `sailfish.nuts.services` and the installer.
 8. **Docker Hub via grubcrawler's existing pipeline.** ✔
 9. **BYO-cloud shape:** we hand the user a **zip of curated training data + a templated script**; they

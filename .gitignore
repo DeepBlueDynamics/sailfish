@@ -9,3 +9,6 @@ data/ngram_drafter.json
 *.safetensors
 *.gguf
 __pycache__/
+
+# competition/strategy docs stay local-only (public repo)
+docs/private/
